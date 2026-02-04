@@ -93,97 +93,41 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
         const { width, height } = ctx.canvas;
         const state = engine.state;
 
-        // A. Clear & Background
-        ctx.fillStyle = COLORS.bg;
+        // A. Clear & Background (Simple)
+        ctx.fillStyle = "#1a1a2e"; // Simple Dark Blue
         ctx.fillRect(0, 0, width, height);
 
-        // B. Retro Grid (Synthwave)
-        ctx.save();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(255, 0, 255, 0.2)";
-        ctx.beginPath();
-
-        // Horizon
-        const horizonY = height * 0.55;
-
-        // Vertical Perspective Lines
-        const centerX = width / 2;
-        for (let i = -10; i <= 10; i++) {
-            // Perspective logic: lines converge at center horizon
-            const x1 = centerX + (i * 40); // Bottom X
-            const x2 = centerX + (i * 2);  // Horizon X (converging)
-            ctx.moveTo(x2, horizonY);
-            ctx.lineTo(x1, height);
-        }
-
-        // Horizontal Lines (moving effect could be added with offset)
-        for (let i = 0; i < 10; i++) {
-            const y = horizonY + (i * i * 2); // Logarithmic spacing for depth
-            if (y > height) break;
-            ctx.moveTo(0, y);
-            ctx.lineTo(width, y);
-        }
-        ctx.stroke();
-
-        // Retro Sun
-        const sunGradient = ctx.createLinearGradient(centerX, horizonY - 40, centerX, horizonY);
-        sunGradient.addColorStop(0, "#ffcc00");
-        sunGradient.addColorStop(1, "#ff00aa");
-        ctx.fillStyle = sunGradient;
-        ctx.beginPath();
-        ctx.arc(centerX, horizonY - 10, 30, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Sun Stripes (Clip effect)
-        ctx.fillStyle = COLORS.bg;
-        for (let i = 0; i < 5; i++) {
-            ctx.fillRect(centerX - 35, horizonY - 25 + (i * 6), 70, 2);
-        }
-        ctx.restore();
+        // Floor / Ground Line
+        ctx.fillStyle = "#333";
+        ctx.fillRect(0, 150, width, 30); // FG Ground
+        ctx.fillStyle = "#222";
+        ctx.fillRect(0, 100, width, 40); // BG Ground
 
         // C. Entities
-        // Helper to draw entities
         const drawEntity = (e: any, isFG: boolean) => {
             if (e.isDead) return;
 
-            // Positioning
-            // Lane logic: FG is lower, BG is higher and smaller/dimmer
-            // BUT game engine 2D coordinates are flat. We map Y to "depth".
-            // Since we use strict lanes:
-            // FG Lane Y = 150 (pixel coord)
-            // BG Lane Y = 140 (pixel coord) - wait, engine has Y. USE ENGINE Y.
-
+            // Positioning logic used in engine
             ctx.save();
-
-            // 1. Shadow
+            
+            // Simple Shadow
             ctx.fillStyle = "rgba(0,0,0,0.5)";
             ctx.beginPath();
-            ctx.ellipse(e.x + e.width / 2, e.y + e.height, e.width / 2, 4, 0, 0, Math.PI * 2);
+            ctx.ellipse(e.x + e.width/2, e.y + e.height, e.width/2, 4, 0, 0, Math.PI * 2);
             ctx.fill();
-
-            // 2. Body GLOW
-            const isP1 = (e.id === 1 || e === state.player1); // Approximate ID check
-            const glowColor = isP1 ? COLORS.p1 : COLORS.p2;
-
-            // Only glow if FG or High Energy
-            if (isFG || e.specialMeter > 90) {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = glowColor;
-            }
 
             // Body Rect
             ctx.fillStyle = e.color;
             if (!isFG) ctx.globalAlpha = 0.6; // Dim BG
             ctx.fillRect(e.x, e.y, e.width, e.height);
-
-            // Titan Details (Head)
+            
+            // Titan Details (Simple Box)
             if (e.width > 30) {
-                ctx.fillStyle = "rgba(0,0,0,0.3)";
-                ctx.fillRect(e.x + 5, e.y + 5, e.width - 10, 10); // Visor
+                 ctx.fillStyle = "rgba(0,0,0,0.3)";
+                 ctx.fillRect(e.x + 5, e.y + 5, e.width - 10, 10); // Visor
             }
 
-            // 3. Weapon / Action
-            ctx.shadowBlur = 0; // Reset for crisp details
+            // Weapon / Action
             ctx.globalAlpha = 1.0;
 
             if (e.isBlocking) {
@@ -197,34 +141,15 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
                 const dir = e.facingRight ? 1 : -1;
                 const swordX = e.facingRight ? e.x + e.width : e.x;
                 ctx.fillRect(swordX, e.y + 15, 30 * dir, 4);
-
-                // Attack Blur
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = "#ffffff";
-                ctx.fillRect(swordX, e.y + 15, 30 * dir, 4);
-                ctx.shadowBlur = 0;
             }
 
-            // 4. Special Move: LUMINOUS EXPLOSION
+            // Special Move: Simple Ring (No Glows)
             if (e.isUsingSpecial) {
-                // Big Energy Ring
-                ctx.strokeStyle = glowColor;
-                ctx.lineWidth = 4;
+                ctx.strokeStyle = e.color;
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(e.x + e.width / 2, e.y + e.height / 2, 60, 0, Math.PI * 2);
+                ctx.arc(e.x + e.width/2, e.y + e.height/2, 60, 0, Math.PI * 2);
                 ctx.stroke();
-
-                // Core
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = glowColor;
-                ctx.beginPath();
-                ctx.arc(e.x + e.width / 2, e.y + e.height / 2, 30, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Screen Flash (Subtle)
-                ctx.fillStyle = `rgba(255, 255, 255, 0.1)`;
-                ctx.fillRect(0, 0, width, height);
             }
 
             // HP Bar (Overhead)

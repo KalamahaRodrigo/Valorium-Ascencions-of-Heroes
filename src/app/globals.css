@@ -3,16 +3,21 @@
 :root {
   --background: #050510;
   --foreground: #e0e0e0;
-  
-  /* Valorium Palette */
-  --color-primary: #00f0ff; /* Neon Cyan */
-  --color-primary-dim: #007077;
-  --color-secondary: #bd00ff; /* Neon Purple */
-  --color-accent: #ffd700; /* Gold/Yellow */
-  --color-surface: #0a0a1f; 
-  --color-surface-light: #151530;
-  
+
+  /* Kamiko/Pixel Art Palette */
+  --color-primary: #00d0d0;
+  /* Kamiko Teal */
+  --color-primary-dim: #008080;
+  --color-secondary: #ff4040;
+  /* Kami Red */
+  --color-accent: #ffffff;
+  /* White */
+  --color-surface: #101518;
+  /* Dark Blue-Black */
+  --color-surface-light: #202a30;
+
   --font-orbitron: 'Orbitron', sans-serif;
+  /* Keep for now or switch to pixel font if available */
   --font-inter: 'Inter', sans-serif;
 }
 
@@ -25,7 +30,7 @@
   --color-accent: var(--color-accent);
   --color-surface: var(--color-surface);
   --color-surface-light: var(--color-surface-light);
-  
+
   --font-orbitron: var(--font-orbitron);
   --font-sans: var(--font-inter);
 }
@@ -34,14 +39,84 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  overflow: hidden; /* Prevent scrolling for game */
+  overflow: hidden;
+  /* Prevent scrolling for game */
+  image-rendering: pixelated;
+  /* Global pixelation */
 }
 
 /* Custom Utilities */
-.text-glow {
-  text-shadow: 0 0 10px var(--color-primary);
+.pixel-border {
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--foreground);
 }
 
-.box-glow {
-  box-shadow: 0 0 15px var(--color-primary-dim);
+/* Custom Intro Animations */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translate(-2px, -2px) rotate(-1deg);
+  }
+
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translate(2px, 2px) rotate(1deg);
+  }
+}
+
+@keyframes dramatic-zoom {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+    filter: blur(10px);
+  }
+
+  60% {
+    transform: scale(1.2) rotate(2deg);
+    opacity: 1;
+    filter: blur(0px);
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes flash-text {
+
+  0%,
+  50%,
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 10px white;
+  }
+
+  25%,
+  75% {
+    opacity: 0.5;
+    text-shadow: none;
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+.animate-dramatic-zoom {
+  animation: dramatic-zoom 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-flash-fast {
+  animation: flash-text 0.5s infinite;
 }

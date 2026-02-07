@@ -119,6 +119,7 @@ function Stars() {
                     count={count}
                     array={positions}
                     itemSize={3}
+                    args={[positions, 3]}
                 />
             </bufferGeometry>
             <pointsMaterial size={0.2} color="white" transparent opacity={0.8} />

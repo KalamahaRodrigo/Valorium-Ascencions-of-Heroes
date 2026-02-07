@@ -514,7 +514,6 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
         });
 
         // C. Entities
-        // Helper to draw entities
         const drawEntity = (e: any, isFG: boolean) => {
             // For Titans, skip if dead
             if (e.isDead && e.classType === 'TITAN') return;
@@ -527,13 +526,7 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
             // If player is dead but not in special animation states, skip
             if (e.isDead && !isRespawning) return;
 
-            // Positioning
-            // Lane logic: FG is lower, BG is higher and smaller/dimmer
-            // BUT game engine 2D coordinates are flat. We map Y to "depth".
-            // Since we use strict lanes:
-            // FG Lane Y = 150 (pixel coord)
-            // BG Lane Y = 140 (pixel coord) - wait, engine has Y. USE ENGINE Y.
-
+            // Positioning logic used in engine
             ctx.save();
 
             const isP1 = (e.id === 1 || e === state.player1);
@@ -637,6 +630,7 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
 
 
             // 3. Weapon / Action
+
             ctx.globalAlpha = 1.0;
 
             if (e.isBlocking) {
@@ -882,6 +876,7 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
                 ctx.fillStyle = "#00ff00"; // Classic Green
                 if (hpPct < 0.3) ctx.fillStyle = "#ff0000";
                 ctx.fillRect(e.x, e.y - 6, e.width * hpPct, 4);
+
             }
 
             ctx.restore();

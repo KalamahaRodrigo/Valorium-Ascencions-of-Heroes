@@ -75,13 +75,19 @@ export class Fighter extends Entity {
 
 export class Titan extends Fighter {
     proximityCharge: number = 0; // 0 to 1, tracks time player is nearby for defense bonus
+    lastDamageTime: number = 0;
 
     constructor(x: number, y: number, color: string) {
-        super(x, y, color, 2250); // Increased HP to compensate for absorption mechanic
+        super(x, y, color, 2500); // Increased HP slightly (2250 -> 2500) per user request
         this.width = 100;
         this.height = 150;
         this.lane = 'BACKGROUND';
         this.classType = 'TITAN';
+    }
+
+    takeDamage(amount: number) {
+        this.lastDamageTime = Date.now();
+        super.takeDamage(amount);
     }
 }
 
@@ -171,10 +177,19 @@ export class Orb extends Entity {
         }
     }
 
-    takeDamage(amount: number, isSpecialAttack: boolean = false) {
-        // Apply defense bonus if active (50% damage reduction)
+    takeDamage(amount: number, isSpecialAttack: boolean = false, canPierce: boolean = false) {
+        // Apply defense bonus if active (25% damage reduction)
         if (this.hasDefenseBonus) {
             amount = amount * this.defenseBonus;
+        }
+
+        let directDamage = 0;
+
+        // LATE GAME MECHANIC: Piercing
+        // If condition meets (Titan active + Player Bonus active), 20% damage ignores armor
+        if (canPierce && this.hasDefenseBonus) {
+            directDamage = amount * 0.20;
+            amount -= directDamage; // Remaining damage hits armor
         }
 
         // Damage hits armor first, then health
@@ -184,8 +199,10 @@ export class Orb extends Entity {
             amount -= armorDmg;
         }
 
-        if (amount > 0) {
-            this.health = Math.max(0, this.health - amount);
+        // Apply remaining damage + direct piercing damage
+        const totalHealthDamage = amount + directDamage;
+        if (totalHealthDamage > 0) {
+            this.health = Math.max(0, this.health - totalHealthDamage);
         }
 
         this.lastHitTime = Date.now(); // Record hit time

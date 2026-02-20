@@ -18,9 +18,17 @@ export default function Home() {
   const [p1Type, setP1Type] = useState<EntityType>('SAMURAI');
   const [p2Type, setP2Type] = useState<EntityType>('SAMURAI');
 
+  const [isInputReady, setIsInputReady] = useState(false);
+
+  // Safety Delay: Prevent instant skipping on load (e.g. holding a button)
+  useEffect(() => {
+    const timer = setTimeout(() => setIsInputReady(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Intro Input Handler
   useEffect(() => {
-    if (!showIntro) return;
+    if (!showIntro || !isInputReady) return;
 
     const handleInput = () => setShowIntro(false);
 
@@ -49,7 +57,7 @@ export default function Home() {
       window.removeEventListener('mousedown', handleInput);
       cancelAnimationFrame(rafId);
     };
-  }, [showIntro]);
+  }, [showIntro, isInputReady]);
 
   const handleStart = (p1: EntityType, p2: EntityType) => {
     setP1Type(p1);
@@ -64,19 +72,19 @@ export default function Home() {
         {/* Dramatic visual background */}
         <div className="absolute inset-0 bg-[radial-gradient(circle,_var(--color-primary-dim)_0%,_#000000_70%)] opacity-20 animate-pulse" />
 
-        <div className="text-center z-10 animate-dramatic-zoom">
-          <h1 className="text-6xl md:text-9xl font-black italic font-orbitron text-transparent bg-clip-text bg-gradient-to-b from-white to-cyan-500 drop-shadow-[0_0_15px_rgba(0,255,255,0.5)]">
+        <div className="text-center z-10 animate-dramatic-zoom px-4">
+          <h1 className="text-5xl md:text-8xl font-black italic font-orbitron text-white drop-shadow-[4px_4px_0_rgba(0,255,255,0.8)] tracking-tighter">
             VALORIUM
           </h1>
-          <h2 className="text-xl md:text-3xl font-orbitron text-cyan-200 mt-4 tracking-[0.5em] uppercase opacity-80">
-            Ascension of Heroes
+          <h2 className="text-xl md:text-2xl font-orbitron text-cyan-300 mt-4 tracking-[0.3em] uppercase opacity-90 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">
+            Ascensions of Heroes
           </h2>
         </div>
 
-        <div className="mt-24 text-3xl md:text-5xl text-white font-black animate-flash-fast tracking-[0.2em] font-orbitron">
+        <div className={`mt-24 text-3xl md:text-4xl text-white font-black tracking-[0.2em] font-orbitron drop-shadow-[3px_3px_0_rgba(255,0,255,0.8)] transition-opacity duration-500 ${isInputReady ? 'opacity-100 animate-flash-fast' : 'opacity-0'}`}>
           PRESS
         </div>
-      </main>
+      </main >
     );
   }
 

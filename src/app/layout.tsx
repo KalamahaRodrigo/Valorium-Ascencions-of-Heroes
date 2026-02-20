@@ -13,7 +13,7 @@ const orbitron = Orbitron({
 });
 
 export const metadata: Metadata = {
-  title: "Valorium: Ascension of Heroes",
+  title: "Valorium: Ascensions of Heroes",
   description: "A competitive lane-based fighting game.",
 };
 

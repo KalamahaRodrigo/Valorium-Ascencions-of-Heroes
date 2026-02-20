@@ -49,39 +49,39 @@ export default function CharacterSelect({ onStart }: { onStart: (p1: EntityType,
                 const now = Date.now();
                 // Simple debounce/repeat delay could be implemented, but strict press check is better for menu
                 // D-Pad Up (12) / Down (13)
-                if (gp.buttons[12].pressed && !lastButtons.current['p1_up']) {
+                if (gp.buttons[12]?.pressed && !lastButtons.current['p1_up']) {
                     if (!p1Ready) setP1Sel(prev => (prev - 1 + CHARACTERS.length) % CHARACTERS.length);
                 }
-                if (gp.buttons[13].pressed && !lastButtons.current['p1_down']) {
+                if (gp.buttons[13]?.pressed && !lastButtons.current['p1_down']) {
                     if (!p1Ready) setP1Sel(prev => (prev + 1) % CHARACTERS.length);
                 }
                 // Face Buttons (0, 1, 2, 3) -> Toggle Ready
-                if ((gp.buttons[0].pressed || gp.buttons[1].pressed || gp.buttons[2].pressed || gp.buttons[3].pressed) && !lastButtons.current['p1_action']) {
+                if ((gp.buttons[0]?.pressed || gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[3]?.pressed) && !lastButtons.current['p1_action']) {
                     setP1Ready(prev => !prev);
                 }
 
                 // Retrieve button states for next frame (simple bool latch)
-                lastButtons.current['p1_up'] = gp.buttons[12].pressed;
-                lastButtons.current['p1_down'] = gp.buttons[13].pressed;
-                lastButtons.current['p1_action'] = gp.buttons[0].pressed || gp.buttons[1].pressed || gp.buttons[2].pressed || gp.buttons[3].pressed;
+                lastButtons.current['p1_up'] = gp.buttons[12]?.pressed ?? false;
+                lastButtons.current['p1_down'] = gp.buttons[13]?.pressed ?? false;
+                lastButtons.current['p1_action'] = gp.buttons[0]?.pressed || gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[3]?.pressed || false;
             }
 
             // P2 Gamepad (Index 1)
             if (gamepads[1]) {
                 const gp = gamepads[1];
-                if (gp.buttons[12].pressed && !lastButtons.current['p2_up']) {
+                if (gp.buttons[12]?.pressed && !lastButtons.current['p2_up']) {
                     if (!p2Ready) setP2Sel(prev => (prev - 1 + CHARACTERS.length) % CHARACTERS.length);
                 }
-                if (gp.buttons[13].pressed && !lastButtons.current['p2_down']) {
+                if (gp.buttons[13]?.pressed && !lastButtons.current['p2_down']) {
                     if (!p2Ready) setP2Sel(prev => (prev + 1) % CHARACTERS.length);
                 }
-                if ((gp.buttons[0].pressed || gp.buttons[1].pressed || gp.buttons[2].pressed || gp.buttons[3].pressed) && !lastButtons.current['p2_action']) {
+                if ((gp.buttons[0]?.pressed || gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[3]?.pressed) && !lastButtons.current['p2_action']) {
                     setP2Ready(prev => !prev);
                 }
 
-                lastButtons.current['p2_up'] = gp.buttons[12].pressed;
-                lastButtons.current['p2_down'] = gp.buttons[13].pressed;
-                lastButtons.current['p2_action'] = gp.buttons[0].pressed || gp.buttons[1].pressed || gp.buttons[2].pressed || gp.buttons[3].pressed;
+                lastButtons.current['p2_up'] = gp.buttons[12]?.pressed ?? false;
+                lastButtons.current['p2_down'] = gp.buttons[13]?.pressed ?? false;
+                lastButtons.current['p2_action'] = gp.buttons[0]?.pressed || gp.buttons[1]?.pressed || gp.buttons[2]?.pressed || gp.buttons[3]?.pressed || false;
             }
 
             rafId = requestAnimationFrame(pollGamepads);

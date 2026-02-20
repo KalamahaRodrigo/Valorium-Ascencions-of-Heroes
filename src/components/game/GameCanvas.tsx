@@ -129,11 +129,13 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
 
         // Detect new hit (hitStop increased)
         if (state.hitStop > lastHitStopRef.current && state.hitStop > 0) {
-            const p1 = state.player1;
-            const p2 = state.player2;
+            // NEW LOGIC: Use explicit attacker ID from engine to prevent "Ghost Hits"
+            const attackerId = state.lastAttackerId;
 
-            const attacker = p1.isAttacking ? p1 : (p2.isAttacking ? p2 : null);
-            if (attacker) {
+            // Only show PLAYER hit effects if a player actually caused the hit
+            if (attackerId === 'P1' || attackerId === 'P2') {
+                const isP1Attacking = attackerId === 'P1';
+                const attacker = isP1Attacking ? state.player1 : state.player2;
                 const dir = attacker.facingRight ? 1 : -1;
 
                 // Use precise hit position from engine if available, otherwise estimate
@@ -145,12 +147,15 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
                 } else {
                     // Fallback: Calculate impact point at the TIP of the weapon (hitbox end)
                     const stats = GameEngine.WEAPON_STATS[attacker.classType as EntityType] || { range: 30 };
-                    const impactOffset = (attacker.width / 2) + stats.range - 5;
+                    // Fix: Add +10 to fallback calculation too if Samurai/Ninja/Monk
+                    let range = stats.range;
+                    if (['SAMURAI', 'NINJA', 'MONK'].includes(attacker.classType)) range += 10;
+
+                    const impactOffset = (attacker.width / 2) + range - 5;
                     impactX = attacker.x + attacker.width / 2 + (impactOffset * dir);
                     impactY = attacker.y + attacker.height / 2 + (Math.random() * 20 - 10);
                 }
 
-                const isP1Attacking = attacker === p1;
                 const hitColor = isP1Attacking ? '#00ffff' : '#ff3366';
 
                 // Refined effects based on attack type
@@ -177,6 +182,11 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
                     triggerFlash(0.1, hitColor);
                     // No zoom
                 }
+            } else if (attackerId === 'TITAN') {
+                // Background Titan Clash - No VFX as requested
+            } else if (attackerId === 'TITAN_BEAM') {
+                triggerScreenShake(20);
+                triggerFlash(0.8, '#ffffff');
             }
         }
         lastHitStopRef.current = state.hitStop;
@@ -645,56 +655,66 @@ export default function GameCanvas({ p1Type, p2Type }: { p1Type: EntityType, p2T
 
             if (e.isAttacking) {
                 const stats = GameEngine.WEAPON_STATS[e.classType as EntityType] || { range: 30 };
-                const range = stats.range;
+                // Scale weapon based on lane depth (0.8x for Background)
+                const scale = isFG ? 1.0 : 0.8;
+
+                const range = stats.range * scale;
                 const dir = e.facingRight ? 1 : -1;
                 const startX = e.x + (e.width / 2) + (e.width / 2 * dir);
                 const weaponColor = isP1 ? '#00ffff' : '#ff3366';
 
+                // Adjusted weapon Y position for Lane 2 (Background)
+                const weaponY = e.y + (isFG ? 25 : 20);
+
                 // Weapon glow
                 ctx.shadowColor = weaponColor;
-                ctx.shadowBlur = 12;
+                ctx.shadowBlur = 12 * scale; // Scale bloom too
 
                 // Weapon shaft
-                let swordH = 3;
+                let swordH = 3 * scale;
                 let tipW = 0;
                 let tipH = 0;
 
                 if (e.classType === 'MONK') {
-                    swordH = 5;
-                    tipW = 12;
-                    tipH = 15;
+                    swordH = 5 * scale;
+                    tipW = 12 * scale;
+                    tipH = 15 * scale;
                 } else if (e.classType === 'NINJA') {
-                    swordH = 2;
-                    tipW = 10;
-                    tipH = 4;
+                    swordH = 2 * scale;
+                    tipW = 10 * scale;
+                    tipH = 4 * scale;
                 }
 
                 const swordRectX = e.facingRight ? startX : startX - range;
 
                 // Weapon gradient
-                const weaponGrad = ctx.createLinearGradient(swordRectX, e.y + 25, swordRectX + range, e.y + 25);
+                const weaponGrad = ctx.createLinearGradient(swordRectX, weaponY, swordRectX + range, weaponY);
                 weaponGrad.addColorStop(0, '#aaaaaa');
                 weaponGrad.addColorStop(0.5, '#ffffff');
                 weaponGrad.addColorStop(1, weaponColor);
                 ctx.fillStyle = weaponGrad;
-                ctx.fillRect(swordRectX, e.y + 25, range, swordH);
+                ctx.fillRect(swordRectX, weaponY, range, swordH);
 
                 // Weapon tip
                 if (tipW > 0) {
                     const tipX = e.facingRight ? (startX + range - tipW) : (startX - range);
-                    const tipY = e.y + 25 - (tipH / 2) + (swordH / 2);
+                    const tipY = weaponY - (tipH / 2) + (swordH / 2);
                     ctx.fillStyle = weaponColor;
                     ctx.fillRect(tipX, tipY, tipW, tipH);
                 }
 
                 // Simple Attack Swipe (clean arc)
                 ctx.shadowBlur = 0;
-                const swipeW = range + 10;
+                const swipeW = (range + 10) * scale; // Also scale splash
                 const swipeRectX = e.facingRight ? startX : startX - swipeW;
+
+                // Adjusted swipe Y position
+                const swipeY = e.y + (isFG ? 15 : 12);
+                const swipeH = 20 * scale;
 
                 // Single clean swipe (solid color)
                 ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-                ctx.fillRect(swipeRectX, e.y + 15, swipeW, 20);
+                ctx.fillRect(swipeRectX, swipeY, swipeW, swipeH);
             }
 
             // Crouching Visual

@@ -13,6 +13,9 @@ export interface GameState {
     titanChargeTimer: number; // Seconds remaining for charge charge
     lastHitPos?: { x: number, y: number }; // Coordinate of the last valid hit for VFX
     lastHitType?: 'BLADE' | 'HANDLE' | 'SPECIAL' | 'TITAN_DEATH'; // Type of the last hit
+    lastAttackerId?: string; // 'P1', 'P2', 'TITAN', 'WORLD'
+    titan1DeadHandled?: boolean; // Track if death event has been processed
+    titan2DeadHandled?: boolean;
 }
 
 export class GameEngine {
@@ -29,8 +32,8 @@ export class GameEngine {
     // Weapon Stats (Rebalanced with hitbox zones)
     // minRange: dead zone at the handle (no damage), maxRange: weapon tip
     static WEAPON_STATS: Record<EntityType, { range: number; minRange: number; damage: number; cooldown: number; startup: number }> = {
-        SAMURAI: { range: 50, minRange: 20, damage: 8, cooldown: 0.35, startup: 0.1 },   // Katana: Perfect.
-        NINJA: { range: 55, minRange: 30, damage: 12, cooldown: 0.6, startup: 0.2 },      // Spear: Range reduced (70->55) per user request
+        SAMURAI: { range: 45, minRange: 20, damage: 8, cooldown: 0.35, startup: 0.1 },   // Katana: Reduced range (50->45) but fixed hitbox tip
+        NINJA: { range: 48, minRange: 25, damage: 12, cooldown: 0.6, startup: 0.2 },      // Spear: Range reduced (55->48) per user request
         MONK: { range: 45, minRange: 20, damage: 18, cooldown: 0.9, startup: 0.3 },       // Axe: 20px Handle, 25px Head (Larger sweet spot inside)
         TITAN: { range: 80, minRange: 10, damage: 50, cooldown: 1.5, startup: 0.5 },
     };
@@ -330,13 +333,22 @@ export class GameEngine {
                     // 1. Define Zones
                     // Handle Zone: From center (plus small gap) to start of blade
                     // Blade Zone: From start of blade to max range
-                    const bladeStart = stats.minRange;
-                    const bladeLength = stats.range - stats.minRange;
+                    const isBG = p.lane === 'BACKGROUND';
+                    const scale = isBG ? 0.8 : 1.0;
+
+                    const bladeStart = stats.minRange * scale;
+                    let bladeLength = (stats.range - stats.minRange) * scale;
+
+                    // Fix geometric gap between hitbox and visual tip (aligns hitbox to visual edge + small phantom range)
+                    // User Request: Replicate the "filled tip" feel for Spear and Axe as well.
+                    if (['SAMURAI', 'NINJA', 'MONK'].includes(p.classType)) {
+                        bladeLength += (10 * scale);
+                    }
 
                     // Handle simulated slightly in front of body (e.g., 2px) to prevent self-hitting or weird overlaps
                     // Handle length = minRange - 2. If minRange is small (Katana), handle is tiny.
-                    const handleStart = 2;
-                    const handleLength = Math.max(0, bladeStart - 2);
+                    const handleStart = 2 * scale;
+                    const handleLength = Math.max(0, bladeStart - (2 * scale));
 
                     const bladeBox = getHitboxSegment(bladeStart, bladeLength);
                     const handleBox = getHitboxSegment(handleStart, handleLength);
@@ -413,6 +425,7 @@ export class GameEngine {
                         let finalDamage = stats.damage * multiplier;
                         this.state.hitStop = 5; // Heavy hit feel
                         this.state.lastHitType = 'BLADE';
+                        this.state.lastAttackerId = isP1 ? 'P1' : 'P2';
 
                         target.takeDamage(finalDamage);
                         p.specialMeter = Math.min(100, (p.specialMeter || 0) + 10);
@@ -486,8 +499,14 @@ export class GameEngine {
                         const comboHits = (this.state as any)[orbKey] || 0;
                         const comboMultiplier = 1 + (comboHits * 1.0); // 1x to 11x over 10 hits - VERY alarming!
 
-                        targetOrb.takeDamage(stats.damage * 5 * dmgMultiplier * comboMultiplier); // 5x base damage to orb
-                        this.state.hitStop = 3;
+                        this.state.lastAttackerId = isP1 ? 'P1' : 'P2';
+                        const targetTitan = isP1 ? titan2 : titan1;
+
+                        targetOrb.takeDamage(
+                            stats.damage * 5 * dmgMultiplier * comboMultiplier,
+                            false, // isSpecial? No
+                            targetTitan.isDead // canPierce? Yes if titan is dead
+                        );
                     }
                 }
 
@@ -554,7 +573,19 @@ export class GameEngine {
                         const distance = Math.sqrt(dx * dx + dy * dy);
 
                         if (distance < hitRadius + targetOrb.width && !targetOrb.isDead) {
-                            targetOrb.takeDamage(48, true); // isSpecialAttack = true (Reduced from 60 to 48)
+                            let damage = 48;
+
+                            // LATE GAME BALANCE: Break stalemate
+                            // If all defenses are active (Defense Bonus + High Regen from Dead Titan)
+                            // AND opponent is actually on field (not respawning), triple the damage.
+                            const opponent = isP1 ? player2 : player1;
+                            const targetTitan = isP1 ? titan2 : titan1;
+
+                            if (targetOrb.hasDefenseBonus && targetTitan.isDead && !opponent.isRespawning) {
+                                damage *= 3; // 48 -> 144
+                            }
+
+                            targetOrb.takeDamage(damage, true, targetTitan.isDead); // isSpecial=true, canPierce=TitanDead
                             hitAny = true;
                         }
                     }
@@ -563,6 +594,7 @@ export class GameEngine {
                         this.state.hitStop = 20; // Big freeze
                         this.state.lastHitPos = { x: tipX, y: tipY };
                         this.state.lastHitType = 'SPECIAL';
+                        this.state.lastAttackerId = isP1 ? 'P1' : 'P2';
                     }
                 }
 
@@ -635,6 +667,44 @@ export class GameEngine {
         updateTitanCharge(titan1, player1);
         updateTitanCharge(titan2, player2);
 
+        // Passive Regeneration up to 35% Health (User Request)
+        // Helps Titans recover from critical state during long fights
+        const criticalThreshold = 0.35;
+        const baseRegenRate = 8; // HP per second
+
+        // Helper to calculate dynamic regen based on time since last damage
+        const getDynamicRegen = (titan: Titan) => {
+            const timeSinceHit = (Date.now() - titan.lastDamageTime) / 1000; // in seconds
+            if (timeSinceHit > 20) return baseRegenRate * 4; // 32 HP/s
+            if (timeSinceHit > 5) return baseRegenRate * 2; // 16 HP/s
+            return baseRegenRate; // 8 HP/s
+        };
+
+        if (!titan1.isDead && titan2.isDead && titan1.health < titan1.maxHealth * criticalThreshold) {
+            const rate = getDynamicRegen(titan1);
+            titan1.health = Math.min(titan1.maxHealth * criticalThreshold, titan1.health + (rate * dt));
+        }
+        if (!titan2.isDead && titan1.isDead && titan2.health < titan2.maxHealth * criticalThreshold) {
+            const rate = getDynamicRegen(titan2);
+            titan2.health = Math.min(titan2.maxHealth * criticalThreshold, titan2.health + (rate * dt));
+        }
+
+        // Check for Titan Death & "Second Wind" Mechanic
+        // If a Titan dies, the survivor heals 35% max HP if they are critical (<35%)
+        if (titan1.isDead && !this.state.titan1DeadHandled) {
+            this.state.titan1DeadHandled = true;
+            if (!titan2.isDead && titan2.health < titan2.maxHealth * criticalThreshold) {
+                titan2.health = Math.min(titan2.maxHealth, titan2.health + (titan2.maxHealth * criticalThreshold));
+                // Visual feedback could be added here later
+            }
+        }
+        if (titan2.isDead && !this.state.titan2DeadHandled) {
+            this.state.titan2DeadHandled = true;
+            if (!titan1.isDead && titan1.health < titan1.maxHealth * criticalThreshold) {
+                titan1.health = Math.min(titan1.maxHealth, titan1.health + (titan1.maxHealth * criticalThreshold));
+            }
+        }
+
         // Regenerate orb armor (increased rate when titan is dead to make direct attacks harder)
         const armorRegenRate1 = titan1.isDead ? 25 : 5; // 5x faster when defending without titan
         const armorRegenRate2 = titan2.isDead ? 25 : 5;
@@ -675,6 +745,9 @@ export class GameEngine {
                     titan1.takeDamage(titanDmg);
                     titan2.takeDamage(titanDmg);
                     this.state.hitStop = 5;
+                    this.state.lastAttackerId = 'TITAN'; // Background event
+                    // Set a valid pos for titans so we don't crash or guess wrong
+                    this.state.lastHitPos = { x: (titan1.x + titan2.x) / 2, y: titan1.y + 40 };
                 }
             }
         } else {
@@ -749,6 +822,7 @@ export class GameEngine {
                     orb1.isDead = true;
                 }
                 this.state.hitStop = 30;
+                this.state.lastAttackerId = 'TITAN_BEAM';
             }
         }
 
